@@ -24,9 +24,10 @@ function createEventID(event: ethereum.Event): string
 
 export function handleEventToken(ev: EventTokenEvent): void
 {
-  let event = Event.load(ev.params.eventId.toString())!;
+  let event = Event.load(ev.params.eventId.toString());
+
   // This handler always run after the transfer handler
-  let token = Token.load(ev.params.tokenId.toString())!;
+  let token = Token.load(ev.params.tokenId.toString());
 
   if (event == null) {
     event               = new Event(ev.params.eventId.toString());
@@ -39,10 +40,14 @@ export function handleEventToken(ev: EventTokenEvent): void
   event.tokenCount    = event.tokenCount.plus(BigInt.fromI32(1));
   event.tokenMints    = event.tokenMints.plus(BigInt.fromI32(1));
   event.transferCount = event.transferCount.plus(BigInt.fromI32(1));
-  token.event         = event.id;
-  token.mintOrder   = event.tokenMints;
+
   event.save();
-  token.save();
+
+  if(token != null) {
+    token.event         = event.id;
+    token.mintOrder   = event.tokenMints;
+    token.save();
+  }
 }
 
 export function handleTransfer(ev: TransferEvent): void {
@@ -79,20 +84,25 @@ export function handleTransfer(ev: TransferEvent): void {
   token.transferCount = token.transferCount.plus(BigInt.fromI32(1));
   token.save();
 
-  let event = Event.load(token.event!)!;
 
-  if(event != null) {
-    // Add one transfer
-    event.transferCount = event.transferCount.plus(BigInt.fromI32(1));
 
-    // Burning the token
-    if(to.id == ZERO_ADDRESS) {
-      event.tokenCount    = event.tokenCount.minus(BigInt.fromI32(1));
-      // Subtract all the transfers from the burned token
-      event.transferCount = event.transferCount.minus(token.transferCount);
+  if(token.event!=null){
+
+    let event = Event.load(token.event!);
+    if(event != null) {
+      // Add one transfer
+      event.transferCount = event.transferCount.plus(BigInt.fromI32(1));
+
+      // Burning the token
+      if(to.id == ZERO_ADDRESS) {
+        event.tokenCount    = event.tokenCount.minus(BigInt.fromI32(1));
+        // Subtract all the transfers from the burned token
+        event.transferCount = event.transferCount.minus(token.transferCount);
+      }
+      event.save();
     }
-    event.save();
   }
+
 
   transfer.token       = token.id;
   transfer.from        = from.id;
